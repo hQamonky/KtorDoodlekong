@@ -6,6 +6,7 @@ import io.ktor.server.netty.*
 import com.doodlekong.whbnd.plugins.*
 import com.doodlekong.whbnd.routes.createRoomRoute
 import com.doodlekong.whbnd.session.DrawingSession
+import com.google.gson.Gson
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.ktor.util.*
@@ -16,6 +17,7 @@ fun main() {
 }
 
 val server = DrawingServer()
+val gson = Gson()
 
 fun Application.module() {
     install(Sessions) {
