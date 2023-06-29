@@ -3,6 +3,7 @@ package com.doodlekong.whbnd.routes
 import com.doodlekong.whbnd.data.Room
 import com.doodlekong.whbnd.data.models.BasicApiResponse
 import com.doodlekong.whbnd.data.models.CreateRoomRequest
+import com.doodlekong.whbnd.data.models.RoomResponse
 import com.doodlekong.whbnd.server
 import com.doodlekong.whbnd.util.Constants.MAX_ROOM_SIZE
 import io.ktor.http.*
@@ -48,6 +49,27 @@ fun Route.createRoomRoute() {
             println("Room created: ${roomRequest.name}")
 
             call.respond(HttpStatusCode.OK, true)
+        }
+    }
+}
+
+fun Route.getRoomsRoute() {
+    route("/api/getRooms") {
+        get {
+            val searchQuery = call.parameters["searchQuery"]
+            if (searchQuery == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+
+            val roomResult = server.rooms.filterKeys {
+                it.contains(searchQuery, ignoreCase = true)
+            }
+            val roomResponses = roomResult.values.map {
+                RoomResponse(it.name, it.maxPlayers, it.players.size)
+            }.sortedBy { it.name }
+
+            call.respond(HttpStatusCode.OK, roomResponses)
         }
     }
 }
