@@ -22,33 +22,29 @@ fun Route.createRoomRoute() {
             }
             if (server.rooms[roomRequest.name] != null) {
                 call.respond(
-                    HttpStatusCode.OK,
-                    BasicApiResponse(false, "Room already exists.")
+                    HttpStatusCode.OK, BasicApiResponse(false, "Room already exists.")
                 )
                 return@post
             }
             if (roomRequest.maxPlayers < 2) {
                 call.respond(
-                    HttpStatusCode.OK,
-                    BasicApiResponse(false, "The minimum room size is 2.")
+                    HttpStatusCode.OK, BasicApiResponse(false, "The minimum room size is 2.")
                 )
                 return@post
             }
             if (roomRequest.maxPlayers > MAX_ROOM_SIZE) {
                 call.respond(
-                    HttpStatusCode.OK,
-                    BasicApiResponse(false, "The maximum room size is $MAX_ROOM_SIZE.")
+                    HttpStatusCode.OK, BasicApiResponse(false, "The maximum room size is $MAX_ROOM_SIZE.")
                 )
                 return@post
             }
             val room = Room(
-                roomRequest.name,
-                roomRequest.maxPlayers
+                roomRequest.name, roomRequest.maxPlayers
             )
             server.rooms[roomRequest.name] = room
             println("Room created: ${roomRequest.name}")
 
-            call.respond(HttpStatusCode.OK, true)
+            call.respond(HttpStatusCode.OK, BasicApiResponse(true))
         }
     }
 }
@@ -70,6 +66,45 @@ fun Route.getRoomsRoute() {
             }.sortedBy { it.name }
 
             call.respond(HttpStatusCode.OK, roomResponses)
+        }
+    }
+}
+
+fun Route.joinRoomRoute() {
+    route("/api/joinRoom") {
+        get {
+            val username = call.parameters["username"]
+            val roomName = call.parameters["roomName"]
+
+            if (username == null || roomName == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+
+            val room = server.rooms[roomName]
+            when {
+                room == null -> {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        BasicApiResponse(false, "Room not found.")
+                    )
+                }
+                room.containsPlayer(username) -> {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        BasicApiResponse(false, "A player with this username already joined.")
+                    )
+                }
+                room.players.size >= room.maxPlayers -> {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        BasicApiResponse(false, "This room is already full.")
+                    )
+                }
+                else -> {
+                    call.respond(HttpStatusCode.OK, BasicApiResponse(true))
+                }
+            }
         }
     }
 }
