@@ -1,6 +1,7 @@
 package com.doodlekong.whbnd.data
 
 import com.doodlekong.whbnd.data.models.Announcement
+import com.doodlekong.whbnd.data.models.ChosenWord
 import com.doodlekong.whbnd.data.models.PhaseChange
 import com.doodlekong.whbnd.gson
 import io.ktor.websocket.*
@@ -17,6 +18,9 @@ class Room(
 
     private var drawingPlayer: Player? = null
     private var phaseChangedListener: ((Phase) -> Unit)? = null
+    private var winningPlayers = listOf<String>()
+    private var word: String? = null
+
     var phase = Phase.WAITING_FOR_PLAYERS
         set(value) {
             synchronized(field) {
@@ -113,6 +117,11 @@ class Room(
         return players.find { it.username == username } != null
     }
 
+    fun setWordAndSwitchToGameRunning(word: String) {
+        this.word = word
+        phase = Phase.GAME_RUNNING
+    }
+
     private fun waitingForPlayers() {
         GlobalScope.launch {
             val phaseChange = PhaseChange(
@@ -137,7 +146,22 @@ class Room(
 
     private  fun gameRunning() {}
 
-    private  fun showWord() {}
+    private  fun showWord() {
+        GlobalScope.launch {
+            if (winningPlayers.isEmpty()) {
+                drawingPlayer?.let {
+                    it.score -= PENALTY_NOBODY_GUESSED_IT
+                }
+            }
+            word?.let {
+                val chosenWord = ChosenWord(it, name)
+                broadcast(gson.toJson(chosenWord))
+                timeAndNotify(DELAY_SHOW_WORD_TO_NEW_ROUND)
+                val phaseChange = PhaseChange(Phase.SHOW_WORD, DELAY_SHOW_WORD_TO_NEW_ROUND)
+                broadcast(gson.toJson(phaseChange))
+            }
+        }
+    }
 
     enum class Phase {
         WAITING_FOR_PLAYERS,
@@ -149,9 +173,12 @@ class Room(
 
     companion object {
         const val UPDATE_TIME_FREQUENCY = 1000L
+
         const val DELAY_WAITING_FOR_START_TO_NEW_ROUND = 10000L
         const val DELAY_NEW_ROUND_TO_GAME_RUNNING = 20000L
         const val DELAY_GAME_RUNNING_TO_SHOW_WORD = 60000L
         const val DELAY_SHOW_WORD_TO_NEW_ROUND = 10000L
+
+        const val PENALTY_NOBODY_GUESSED_IT = 50
     }
 }
