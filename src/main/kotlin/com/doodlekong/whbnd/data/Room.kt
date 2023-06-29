@@ -1,10 +1,8 @@
 package com.doodlekong.whbnd.data
 
-import com.doodlekong.whbnd.data.models.Announcement
-import com.doodlekong.whbnd.data.models.ChosenWord
-import com.doodlekong.whbnd.data.models.GameState
-import com.doodlekong.whbnd.data.models.PhaseChange
+import com.doodlekong.whbnd.data.models.*
 import com.doodlekong.whbnd.gson
+import com.doodlekong.whbnd.util.getRandomWords
 import com.doodlekong.whbnd.util.transformToUnderscores
 import com.doodlekong.whbnd.util.words
 import io.ktor.websocket.*
@@ -24,6 +22,7 @@ class Room(
     private var winningPlayers = listOf<String>()
     private var word: String? = null
     private var curWords: List<String>? = null
+    private var drawingPlayerIndex = 0
 
     var phase = Phase.WAITING_FOR_PLAYERS
         set(value) {
@@ -146,7 +145,15 @@ class Room(
             broadcast(gson.toJson(phaseChange))
         }}
 
-    private fun newRound() {}
+    private fun newRound() {
+        curWords = getRandomWords(3)
+        val newWords = NewWords(curWords!!)
+        nextDrawingPlayer()
+        GlobalScope.launch {
+            drawingPlayer?.socket?.send(Frame.Text(gson.toJson(newWords)))
+            timeAndNotify(DELAY_NEW_ROUND_TO_GAME_RUNNING)
+        }
+    }
 
     private  fun gameRunning() {
         winningPlayers = listOf()
@@ -189,6 +196,20 @@ class Room(
                 broadcast(gson.toJson(phaseChange))
             }
         }
+    }
+
+    private fun nextDrawingPlayer() {
+        drawingPlayer?.isDrawing = false
+        if (players.isEmpty()) {
+            return
+        }
+
+        drawingPlayer = if (drawingPlayerIndex <= players.size - 1) {
+            players[drawingPlayerIndex]
+        } else players.last()
+
+        if (drawingPlayerIndex < players.size - 1) drawingPlayerIndex++
+        else drawingPlayerIndex = 0
     }
 
     enum class Phase {
