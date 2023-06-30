@@ -10,6 +10,8 @@ import com.doodlekong.whbnd.session.DrawingSession
 import com.doodlekong.whbnd.util.Constants.TYPE_ANNOUNCEMENT
 import com.doodlekong.whbnd.util.Constants.TYPE_CHAT_MESSAGE
 import com.doodlekong.whbnd.util.Constants.TYPE_CHOSEN_WORD
+import com.doodlekong.whbnd.util.Constants.TYPE_DISCONNECT_REQUEST
+import com.doodlekong.whbnd.util.Constants.TYPE_DRAW_ACTION
 import com.doodlekong.whbnd.util.Constants.TYPE_DRAW_DATA
 import com.doodlekong.whbnd.util.Constants.TYPE_GAME_STATE
 import com.doodlekong.whbnd.util.Constants.TYPE_JOIN_ROOM_HANDSHAKE
@@ -51,6 +53,8 @@ fun Route.standardWebSocket(
                         TYPE_CHOSEN_WORD -> ChosenWord::class.java
                         TYPE_GAME_STATE -> GameState::class.java
                         TYPE_PING -> Ping::class.java
+                        TYPE_DISCONNECT_REQUEST -> DisconnectRequest::class.java
+                        TYPE_DRAW_ACTION -> DrawAction::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)
@@ -100,7 +104,14 @@ fun Route.gameWebSocketRoute() {
                     val room = server.rooms[payload.roomName] ?: return@standardWebSocket
                     if (room.phase == Room.Phase.GAME_RUNNING) {
                         room.broadcastToAllExcept(message, clientId)
+                        room.addSerializedDrawInfo(message)
                     }
+                    room.lastDrawData = payload
+                }
+                is DrawAction -> {
+                    val room = server.getRoomWithClientId(clientId) ?: return@standardWebSocket
+                    room.broadcastToAllExcept(message, clientId)
+                    room.addSerializedDrawInfo(message)
                 }
                 is ChosenWord -> {
                     val room = server.rooms[payload.roomName] ?: return@standardWebSocket
@@ -114,6 +125,9 @@ fun Route.gameWebSocketRoute() {
                 }
                 is Ping -> {
                     server.players[clientId]?.receivedPong()
+                }
+                is DisconnectRequest -> {
+                    server.playerLeft(clientId, true)
                 }
             }
         }
