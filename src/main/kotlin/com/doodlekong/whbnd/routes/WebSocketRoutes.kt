@@ -14,6 +14,7 @@ import com.doodlekong.whbnd.util.Constants.TYPE_DRAW_DATA
 import com.doodlekong.whbnd.util.Constants.TYPE_GAME_STATE
 import com.doodlekong.whbnd.util.Constants.TYPE_JOIN_ROOM_HANDSHAKE
 import com.doodlekong.whbnd.util.Constants.TYPE_PHASE_CHANGE
+import com.doodlekong.whbnd.util.Constants.TYPE_PING
 import com.google.gson.JsonParser
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
@@ -49,6 +50,7 @@ fun Route.standardWebSocket(
                         TYPE_PHASE_CHANGE -> PhaseChange::class.java
                         TYPE_CHOSEN_WORD -> ChosenWord::class.java
                         TYPE_GAME_STATE -> GameState::class.java
+                        TYPE_PING -> Ping::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)
@@ -82,6 +84,10 @@ fun Route.gameWebSocketRoute() {
                     server.playerJoined(player)
                     if (!room.containsPlayer(player.username)) {
                         room.addPlayer(player.clientId, player.username, socket)
+                    } else {
+                        val playerInRoom = room.players.find { it.clientId == clientId }
+                        playerInRoom?.socket = socket
+                        playerInRoom?.startPinging()
                     }
                 }
                 is DrawData -> {
@@ -96,6 +102,9 @@ fun Route.gameWebSocketRoute() {
                 }
                 is ChatMessage -> {
 
+                }
+                is Ping -> {
+                    server.players[clientId]?.receivedPong()
                 }
             }
         }
